@@ -9,7 +9,7 @@ rm -f $SH_PATH/genpac.pac
 
 genpac --format=pac \
 	--pac-proxy="SOCKS5 $SSHOST:1988; SOCKS $SSHOST:1988; PROXY $SSHOST:1989; DIRECT" \
-	--proxy="SOCKS5://192.168.1.10:1988" \
+	--proxy="SOCKS5://$SSHOST:1988" \
 	--output="$SH_PATH/genpac.pac" \
 	--gfwlist-url="https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt" \
 	--gfwlist-local="$SH_PATH/gfwlist.txt" \
