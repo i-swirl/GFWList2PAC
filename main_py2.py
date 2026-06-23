@@ -1,13 +1,13 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 import pkgutil
-import urllib.parse
+import urlparse
 import json
 import logging
-import urllib.request
-import base64
+import urllib2
 from argparse import ArgumentParser
+import copy
 
 __all__ = ['main']
 
@@ -33,9 +33,9 @@ def decode_gfwlist(content):
     # decode base64 if have to
     try:
         if '.' in content:
-            raise Exception('not base64')
-        return base64.b64decode(content).decode('utf-8')
-    except Exception:
+            raise
+        return content.decode('base64')
+    except:
         return content
 
 
@@ -44,7 +44,7 @@ def get_hostname(something):
         # quite enough for GFW
         if not something.startswith('http:'):
             something = 'http://' + something
-        r = urllib.parse.urlparse(something)
+        r = urlparse.urlparse(something)
         return r.hostname
     except Exception as e:
         logging.error(e)
@@ -63,7 +63,7 @@ def add_domain_to_set(s, something):
 
 
 def parse_gfwlist(content, user_rule=None):
-    builtin_rules = pkgutil.get_data('gfwlist2pac', 'resources/builtin.txt').decode('utf-8').splitlines(False)
+    builtin_rules = pkgutil.get_data('gfwlist2pac', 'resources/builtin.txt').splitlines(False)
     gfwlist = content.splitlines(False)
     if user_rule:
         gfwlist.extend(user_rule.splitlines(False))
@@ -93,11 +93,11 @@ def parse_gfwlist(content, user_rule=None):
 def reduce_domains(domains):
     # reduce 'www.google.com' to 'google.com'
     # remove invalid domains
-    tld_content = pkgutil.get_data('gfwlist2pac', 'resources/tld.txt').decode('utf-8')
+    tld_content = pkgutil.get_data('gfwlist2pac', 'resources/tld.txt')
     tlds = set(tld_content.splitlines(False))
-    cus_content = pkgutil.get_data('gfwlist2pac', 'resources/custom.txt').decode('utf-8')
+    cus_content = pkgutil.get_data('gfwlist2pac', 'resources/custom.txt')
     cuss = cus_content.splitlines(False)
-    ban_content = pkgutil.get_data('gfwlist2pac', 'resources/ban.txt').decode('utf-8')
+    ban_content = pkgutil.get_data('gfwlist2pac', 'resources/ban.txt')
     bans = set(ban_content.splitlines(False))
     new_domains = set()
     for cus in cuss:
@@ -105,14 +105,14 @@ def reduce_domains(domains):
     for domain in domains:
         domain_parts = domain.split('.')
         last_root_domain = None
-        for i in range(0, len(domain_parts)):
+        for i in xrange(0, len(domain_parts)):
             root_domain = '.'.join(domain_parts[len(domain_parts) - i - 1:])
             if i == 0:
-                if root_domain not in tlds:
+                if not tlds.__contains__(root_domain):
                     # root_domain is not a valid tld
                     break
             last_root_domain = root_domain
-            if root_domain in tlds:
+            if tlds.__contains__(root_domain):
                 continue
             else:
                 break
@@ -122,11 +122,11 @@ def reduce_domains(domains):
             same = False
             for cus in new_domains:
                 if len(cus) < len(last_root_domain):
-                    if cus[::-1] + '.' == last_root_domain[::-1][0:len(cus)+1]:
+                    if cmp(cus[::-1] + '.', last_root_domain[::-1][0:len(cus)+1]) == 0 :
                         same = True
                         break
                 elif len(cus) > len(last_root_domain):
-                    if last_root_domain[::-1] + '.' == cus[::-1][0:len(last_root_domain)+1]:
+                    if cmp(last_root_domain[::-1] + '.', cus[::-1][0:len(last_root_domain)+1]) == 0 :
                         new_domains.remove(cus)
                         break
             if not same :
@@ -136,7 +136,7 @@ def reduce_domains(domains):
 
 def generate_pac(domains, proxy):
     # render the pac file
-    proxy_content = pkgutil.get_data('gfwlist2pac', 'resources/proxy.pac').decode('utf-8')
+    proxy_content = pkgutil.get_data('gfwlist2pac', 'resources/proxy.pac')
     domains_dict = {}
     for domain in domains:
         domains_dict[domain] = 1
@@ -152,20 +152,20 @@ def main():
         with open(args.input, 'r') as f:
             content = f.read()
     else:
-        print('Downloading gfwlist from %s' % gfwlist_url)
-        content = urllib.request.urlopen(gfwlist_url, timeout=10).read().decode('utf-8')
+        print 'Downloading gfwlist from %s' % gfwlist_url
+        content = urllib2.urlopen(gfwlist_url, timeout=10).read()
         with open('gfwlist.txt', 'w') as f:
             f.write(content)
     if args.user_rule:
-        userrule_parts = urllib.parse.urlsplit(args.user_rule)
+        userrule_parts = urlparse.urlsplit(args.user_rule)
         if not userrule_parts.scheme or not userrule_parts.netloc:
             # It's not an URL, deal it as local file
-            with open(args.user_rule, 'r') as f:
+            with open(args.user_rule, 'rb') as f:
                 user_rule = f.read()
         else:
             # Yeah, it's an URL, try to download it
-            print('Downloading user rules file from %s' % args.user_rule)
-            user_rule = urllib.request.urlopen(args.user_rule, timeout=10).read().decode('utf-8')
+            print 'Downloading user rules file from %s' % args.user_rule
+            user_rule = urllib2.urlopen(args.user_rule, timeout=10).read()
 
     content = decode_gfwlist(content)
     domains = parse_gfwlist(content, user_rule)
